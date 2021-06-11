@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+<launch>
+  <arg name="panda_ip" default="172.16.1.2"/>
+
+  <arg name="robot_id" default="panda" />
+  <arg name="debug"    default="false" />
+  <arg name="rviz"     default="true" />
+  <arg name="load_gripper"  default="false" />
+  <arg name="gripper_homed" default="false" />
+
+  <include file="$(find franka_control)/launch/franka_control.launch" >
+    <arg name="robot_ip"  value="$(arg panda_ip)" />
+  </include>
+
+  <group ns="$(arg robot_id)">
+    <group ns="larm">
+      <include file="$(find franka_gripper)/launch/franka_gripper.launch" >
+        <arg name="robot_ip" value="$(arg panda_ip)" />
+        <arg name="stop_at_shutdown" value="true" />
+        <arg name="arm_id" value="larm" />
+      </include>
+    </group>
+  </group>
+
+  <!-- vision -->
+  <!-- <include file="$(find openni2_launch)/launch/openni2.launch" /> -->
+
+  <!-- teleop -->
+  <!-- <include file="$(find rwt_image_view)/launch/rwt_image_view.launch"/> -->
+
+  <!-- <node pkg="rwt_teleop" type="draw_force_on_image.py" name="draw_force_on_image"/> -->
+
+  <!-- <group ns="larm_marker"> -->
+  <!--   <node pkg="image_view2" type="image_view2" name="image_view2_for_draw_force_on_image" output="log"> -->
+  <!--     <remap from="image" to="/edgetpu_object_detector/output/image"/> -->
+  <!--     <remap from="camera_info" to="/camera/rgb/camera_info"/> -->
+  <!--     <param name="use_window" value="false"/> -->
+  <!--   </node> -->
+  <!-- </group> -->
+
+  <!-- <group ns="rarm_marker"> -->
+  <!--   <node pkg="image_view2" type="image_view2" name="image_view2_for_draw_force_on_image" output="log"> -->
+  <!--     <remap from="image" to="/larm_marker/image_marked"/> -->
+  <!--     <remap from="image_marked" to="/operator_view"/> -->
+  <!--     <remap from="camera_info" to="/camera/rgb/camera_info"/> -->
+  <!--     <param name="use_window" value="false"/> -->
+  <!--   </node> -->
+  <!-- </group> -->
+
+</launch>
