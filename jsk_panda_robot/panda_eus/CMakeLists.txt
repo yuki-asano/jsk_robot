@@ -22,7 +22,20 @@ add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/models/dual_panda.urdf
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/models
   DEPENDS ${PROJECT_SOURCE_DIR}/models/dual_panda.urdf.xacro)
 
-add_custom_target(generate_panda_lisp ALL DEPENDS ${PROJECT_SOURCE_DIR}/models/dual_panda.l)
+###
+### panda.l generation
+###
+add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/models/panda.l
+  COMMAND rosrun euscollada collada2eus -I panda.urdf -C panda.yaml -O panda.l
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/models
+  DEPENDS ${PROJECT_SOURCE_DIR}/models/panda.urdf ${PROJECT_SOURCE_DIR}/models/panda.yaml)
+
+add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/models/panda.urdf
+  COMMAND rosrun xacro xacro --inorder ${franka_description_DIR}/../robots/panda_arm.urdf.xacro > panda.urdf
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/models
+  DEPENDS ${franka_description_DIR}/../robots/panda_arm.urdf.xacro)
+
+add_custom_target(generate_panda_lisp ALL DEPENDS ${PROJECT_SOURCE_DIR}/models/dual_panda.l ${PROJECT_SOURCE_DIR}/models/panda.l)
 
 #############
 ## Install ##

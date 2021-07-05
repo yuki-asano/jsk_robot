@@ -1,14 +1,14 @@
 (require :robot-interface "package://pr2eus/robot-interface.l")
-(require :franka "package://panda_eus/models/panda_arm.l")
+(require :franka "package://panda_eus/models/panda.l")
 
 (ros::roseus-add-msgs "franka_msgs")
 (ros::roseus-add-msgs "franka_gripper")
 
 (defclass panda-robot-interface
   :super robot-interface
-  :slots (gripper-action l-gripper-action gazebop
-          error-recovery-act l-error
-          l-gripper-grasp-action l-gripper-move-action l-gripper-homing-action l-gripper-stop-action
+  :slots (gripper-action gazebop
+          error-recovery-act error
+          gripper-grasp-action gripper-move-action gripper-homing-action gripper-stop-action
           )
   )
 (defmethod panda-robot-interface
@@ -26,10 +26,10 @@
      (when gazebop
        (ros::subscribe "/lhand_controller/state" control_msgs::JointTrajectoryControllerState
                        #'send self :gripper-state-callback :larm :groupname groupname)
-       (setq l-gripper-action (instance ros::simple-action-client :init
+       (setq gripper-action (instance ros::simple-action-client :init
                                         "/lhand_controller/follow_joint_trajectory"
                                         control_msgs::FollowJointTrajectoryAction))
-       (dolist (action (list l-gripper-action))
+       (dolist (action (list gripper-action))
          (unless (and joint-action-enable (send action :wait-for-server 3))
            (setq joint-action-enable nil)
            (ros::ros-warn "~A is not respond" action)
@@ -40,8 +40,6 @@
 
      ;; for error recovery
      (ros::create-nodehandle "error_group")
-     (ros::subscribe "/panda/rarm/has_error" std_msgs::Bool
-                     #'send self :callback-rarm-error 1 :groupname "error_group")
      (ros::subscribe "/panda/larm/has_error" std_msgs::Bool
                      #'send self :callback-larm-error 1 :groupname "error_group")
      (setq error-recovery-act (instance ros::simple-action-client :init
@@ -50,21 +48,21 @@
                                         :groupname "error_group"
                                         ))
      ;; actions for gripper
-     (setq l-gripper-grasp-action
+     (setq gripper-grasp-action
        (instance ros::simple-action-client :init
-             "/panda/larm/franka_gripper/grasp"
+             "/franka_gripper/grasp"
              franka_gripper::GraspAction))
-     (setq l-gripper-homing-action
+     (setq gripper-homing-action
        (instance ros::simple-action-client :init
-             "/panda/larm/franka_gripper/homing"
+             "/franka_gripper/homing"
              franka_gripper::HomingAction))
-     (setq l-gripper-move-action
+     (setq gripper-move-action
        (instance ros::simple-action-client :init
-             "/panda/larm/franka_gripper/move"
+             "/franka_gripper/move"
              franka_gripper::MoveAction))
-     (setq l-gripper-stop-action
+     (setq gripper-stop-action
        (instance ros::simple-action-client :init
-             "/panda/larm/franka_gripper/stop"
+             "/franka_gripper/stop"
              franka_gripper::StopAction))
      ))
   (:default-controller
@@ -81,32 +79,19 @@
    ()
    (list
     (car (send self :larm-controller))
-    ;; (car (send self :rarm-controller))
-    ;; (car (send self :head-controller))
     ))
   |#
   (:larm-controller
    ()
    (list
     (list
-     (cons :controller-action "rarm_controller/follow_joint_trajectory")
+     (cons :controller-action "larm_controller/follow_joint_trajectory")
      (cons :controller-state  "/panda/panda_effort_joint_trajectory_controller/follow_joint_trajectory")
      (cons :action-type control_msgs::FollowJointTrajectoryAction)
      (cons :joint-names
            (remove-if #'(lambda (jn) (substringp "finger" jn))
                       (mapcar #'(lambda (n) (if (symbolp n) (symbol-name n) n))
                               (send-all (send robot :larm :joint-list) :name)))))))
-  (:rarm-controller
-   ()
-   (list
-    (list
-     (cons :controller-action "rarm_controller/follow_joint_trajectory")
-     (cons :controller-state "rarm_controller/state")
-     (cons :action-type control_msgs::FollowJointTrajectoryAction)
-     (cons :joint-names
-           (remove-if #'(lambda (jn) (substringp "finger" jn))
-                      (mapcar #'(lambda (n) (if (symbolp n) (symbol-name n) n))
-                              (send-all (send robot :rarm :joint-list) :name)))))))
   (:head-controller
    ()
    (list
@@ -124,26 +109,18 @@
      (cons :controller-state "lhand_controller/state")
      (cons :action-type control_msgs::FollowJointTrajectoryAction)
      (cons :joint-names (list "left_finger_joint1" "left_finger_joint2") ))))
-  (:rhand-controller
-   ()
-   (list
-    (list
-     (cons :controller-action "rhand_controller/follow_joint_trajectory")
-     (cons :controller-state "rhand_controller/state")
-     (cons :action-type control_msgs::FollowJointTrajectoryAction)
-     (cons :joint-names (list "right_finger_joint1" "right_finger_joint2") ))))
   #|
   (:start-grasp
   (arm &key (wait nil)) ;; TODO :arms is not implemented
-  (unless (memq arm '(:larm :rarm))
-  (error "you must specify arm ~A from ~A" (car args) '(:larm :rarm))
+  (unless (memq arm '(:larm))
+  (error "you must specify arm ~A from ~A" (car args) '(:larm))
   (return-from :start-grasp nil))
   (send self :move-gripper arm -0.01 :effort 1.0 :wait wait)
   )
   (:stop-grasp
   (arm &key (wait nil)) ;; TODO :arms is not implemented
-  (unless (memq arm '(:larm :rarm))
-  (error "you must specify arm ~A from ~A" (car args) '(:larm :rarm))
+  (unless (memq arm '(:larm))
+  (error "you must specify arm ~A from ~A" (car args) '(:larm))
   (return-from :stop-grasp nil))
   (send self :move-gripper arm 0.05 :effort 1.0 :wait wait)
   )
@@ -152,10 +129,8 @@
   (arm pos &key (effort 25) (tm 500) (timeout 5000) (wait nil))  ;; TODO :arms is not implemented
   (let* ((start-time 0.1) ;; TODO fixed start-time
   (action (case arm
-  (:rarm r-gripper-action)
-  (:larm l-gripper-action)))
+  (:larm gripper-action)))
   (joint-names (case arm
-  (:rarm (cdr (assoc :joint-names (car (send self :rhand-controller)))))
   (:larm (cdr (assoc :joint-names (car (send self :lhand-controller)))))))
   (goal (send action :make-goal-instance))
   (st (if (numberp start-time)
@@ -181,9 +156,9 @@
   (return-from :gripper
   (mapcar #'(lambda (x)
   (send self :gripper x (cadr args)))
-  '(:larm :rarm))))
-  (unless (memq (car args) '(:larm :rarm))
-  (error "you must specify arm ~A from ~A" (car args) '(:larm :rarm))
+  '(:larm)))
+  (unless (memq (car args) '(:larm))
+  (error "you must specify arm ~A from ~A" (car args) '(:larm))
   (return-from :gripper nil))
   (send self :state
   (intern
@@ -220,10 +195,10 @@
    )
   (:check-error ()
                 (ros::spin-once "error_group")
-                (or l-error)
+                (or error)
                 )
   (:callback-larm-error (msg)
-                        (setq l-error (send msg :data))
+                        (setq error (send msg :data))
                         )
   (:wait-recover-error () (send error-recovery-act :wait-for-result))
   (:recover-error (&key (wait t))
@@ -277,7 +252,7 @@
    (let (acts)
      (case
          arm
-       (:larm (setq acts (list l-gripper-stop-action)))
+       (:larm (setq acts (list gripper-stop-action)))
        )
      (when acts
        (dolist (act acts)
@@ -290,7 +265,7 @@
    (let (acts)
      (case
          arm
-       (:larm (setq acts (list l-gripper-homing-action)))
+       (:larm (setq acts (list gripper-homing-action)))
        )
      (when acts
        (dolist (act acts)
@@ -303,7 +278,7 @@
    (let (acts)
      (case
          arm
-       (:larm (setq acts (list l-gripper-grasp-action)))
+       (:larm (setq acts (list gripper-grasp-action)))
        )
      (when acts
        (dolist (act acts)
@@ -313,8 +288,8 @@
        )))
   (:stop-grasp
    (arm &key (wait nil)) ;; TODO :arms is not implemented
-   (unless (memq arm '(:larm :rarm :arms))
-     (error "you must specify arm ~A from ~A" (car args) '(:larm :rarm :arms))
+   (unless (memq arm '(:larm :arms))
+     (error "you must specify arm ~A from ~A" (car args) '(:larm :arms))
      (return-from :stop-grasp nil))
    (send self :move-gripper arm 0.08 :tm 500 :wait wait)
    )
@@ -323,7 +298,7 @@
    (let (acts)
      (case
          arm
-       (:larm (setq acts (list l-gripper-move-action)))
+       (:larm (setq acts (list gripper-move-action)))
        )
      (when acts
        (dolist (act acts)
