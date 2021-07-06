@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-  <arg name="panda_ip" default="172.16.1.2"/>
+  <arg name="panda_ip" default="172.16.0.2"/>
 
   <arg name="robot_id" default="panda_arm" />
   <arg name="debug"    default="false" />
