@@ -69,8 +69,8 @@
    ()
    (list
     (list
-     (cons :controller-action "/position_joint_trajectory_controller/follow_joint_trajectory")
-     (cons :controller-state  "/position_joint_trajectory_controller/state")
+     (cons :controller-action "/effort_joint_trajectory_controller/follow_joint_trajectory")
+     (cons :controller-state  "/effort_joint_trajectory_controller/state")
      (cons :action-type control_msgs::FollowJointTrajectoryAction)
      (cons :joint-names (send-all (send robot :joint-list) :name))
      )))
@@ -79,7 +79,7 @@
    (list
     (list
      (cons :controller-action "/arm_controller/follow_joint_trajectory")
-     (cons :controller-state  "/position_joint_trajectory_controller/follow_joint_trajectory")
+     (cons :controller-state  "/effort_joint_trajectory_controller/follow_joint_trajectory")
      (cons :action-type control_msgs::FollowJointTrajectoryAction)
      (cons :joint-names
            (remove-if #'(lambda (jn) (substringp "finger" jn))
@@ -102,7 +102,7 @@
                  (instance dynamic_reconfigure::DoubleParameter :init
                            :name "d" :value dgain)))
      (ros::service-call
-      (format nil "/position_joint_trajectory_controller/gains/~A/set_parameters" joint-name)
+      (format nil "/effort_joint_trajectory_controller/gains/~A/set_parameters" joint-name)
       req)
      ))
   (:set-all-joint-pd-gain
